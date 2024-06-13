@@ -2,6 +2,7 @@ const express = require("express")
 const mongoose = require("mongoose")
 const cors = require("cors")
 const bcrypt = require("bcryptjs")  //cyphertext is (pswd encrypt)
+const jwt = require("jsonwebtoken")
 
 const {blogmodel} = require("./models/blog")
 
@@ -26,8 +27,39 @@ app.post("/signUp",async(req,res)=>{
     let blog = new blogmodel(input)
     blog.save()
     console.log(blog)
-    
+
     res.json({"status":"success"})
+})
+
+app.post("/signin",(req,res)=>{
+    let input = req.body
+    blogmodel.find({"email":req.body.email}).then(
+        (response)=>{
+            if (response.length > 0) {
+                let dbPassword = response[0].password  //entered email is compared with existing password(email)
+                console.log(dbPassword)
+                bcrypt.compare(input.password,dbPassword,(error,isMatch)=>{ //input pswd and hashed pswd is  compared
+                    if (isMatch) {
+                        //if login success generate token
+                        jwt.sign({email:input.email},"blog-app",{expiresIn:"1d"},
+                            (error,token)=>{
+                                if (error) {
+                                    res.json({"status":"unable to create token"})
+                                } else {
+                                    res.json({"status":"success","userId":response[0]._id,"token":token})
+                                }
+                            }
+                        )
+                    } else {
+                        res.json({"status":"incorrect"})
+                    }
+                })
+                
+            } else {
+                res.json({"status":"user not found"})
+            }
+        }
+    ).catch()
 })
 
 app.listen(8080,()=>{
